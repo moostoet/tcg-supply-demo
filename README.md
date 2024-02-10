@@ -1,1 +1,1 @@
-# tcg-supply-demo
+# tcg.supply
