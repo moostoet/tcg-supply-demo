@@ -71,7 +71,8 @@
     "ramda": "^0.29.1",
     "ramda-adjunct": "^4.1.1",
     "redis": "^4.6.13",
-    "type-fest": "^4.10.2"
+    "type-fest": "^4.10.2",
+    "zod": "^3.22.4"
   },
   "engines": {
     "node": ">= 16.x.x"

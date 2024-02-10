@@ -1,21 +1,21 @@
-import type { Context, Service, ServiceSchema } from "moleculer";
-import type { ApiSettingsSchema, GatewayResponse, IncomingRequest, Route } from "moleculer-web";
-import ApiGateway from "moleculer-web";
-import passport from "passport";
-import session from "express-session";
+import { promisify } from "node:util"
 import BetterSqlite3 from "better-sqlite3";
-import { setupPassportLocalStrategy } from "../passport/passport";
-import { promisify } from "util";
+import express from 'express';
+import session from "express-session";
+import type { Context, ServiceSchema } from "moleculer";
+import type { ApiSettingsSchema, GatewayResponse, IncomingRequest, Route } from "moleculer-web";
+import apiGateway from "moleculer-web";
+import passport from "passport";
 import { isNil, pipe, prop, when } from "ramda";
-
-const SQLiteStore = require('better-sqlite3-session-store')(session);
-
-const db = new BetterSqlite3('session.db', { verbose: console.log });
+import { setupPassportLocalStrategy } from "../passport/passport";
+import { Server } from 'node:http';
+const betterSQLiteStore = require('better-sqlite3-session-store')(session);
 
 const respondTo = (res: GatewayResponse) => (status: number) => (body: Record<keyof any, any>) => {
 	console.log("RESPONDING WITH: ", body);
 	res.writeHead(status, { "Content-Type": "application/json" });
-	res.end(JSON.stringify(body));
+	res.end('ok');
+	//res.write(JSON.stringify(body))
 }
 
 interface Meta {
@@ -25,38 +25,14 @@ interface Meta {
 
 const ApiService: ServiceSchema<ApiSettingsSchema> = {
 	name: "api",
-	mixins: [ApiGateway],
+	mixins: [apiGateway],
 
 	// More info about settings: https://moleculer.services/docs/0.14/moleculer-web.html
 	settings: {
-		// Exposed port
-		port: 8080,
-
-		// Exposed IP
-		ip: "0.0.0.0",
-
+		server: false,
 		// Global Express middlewares. More info: https://moleculer.services/docs/0.14/moleculer-web.html#Middlewares
 		use: [
-			// @ts-ignore
-			session({
-				secret: process.env.COOKIE_SECRET ?? "supersecret",
-				resave: false,
-				saveUninitialized: false,
-				store: new SQLiteStore({
-					client: db,
-					expired: {
-						clear: true,
-						interval: 60 * 60 * 1000,
-					}
-				}),
-				cookie: {
-					httpOnly: true,
-					maxAge: 24 * 60 * 60 * 1000,
-				}
-			}),
 
-			passport.initialize(),
-			passport.session(),
 		],
 
 		cors: {
@@ -91,13 +67,18 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 
 				// The auto-alias feature allows you to declare your route alias directly in your services.
 				// The gateway will dynamically build the full routes from service schema.
-				autoAliases: true,
+				autoAliases: false,
 
 				aliases: {
-					"POST auth/login": [
+					'POST auth/login': [
 						passport.authenticate("local"),
 						"auth.login"
-					]
+					],
+					'POST auth/logout': async (req: Express.Request, res: GatewayResponse) => [
+						passport.authenticate("local"),
+						req.logout(() => respondTo(res)(200)({ message: 'OK' }))
+					],
+					'POST auth/register': 'auth.register'
 				},
 				/**
 				 * Before call hook. You can check the request.
@@ -155,7 +136,9 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 				],
 
 				use: [
-					passport.authenticate("local"),
+					passport.authenticate("local", {
+						failWithError: true
+					}),
 				],
 
 				mergeParams: true,
@@ -163,49 +146,50 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 				autoAliases: true,
 
 				aliases: {
-					async "POST auth/logout"(req: Express.Request, res: GatewayResponse) {
-						await promisify(req.logout)()
-						res.writeHead(200, { "Content-Type": "application/json" });
-						res.end('OK');
-					},
-
-					async "POST users/me"(req: Express.Request, res: GatewayResponse) {
-						console.log("REQ IS: ", req.user);
-						return pipe(
-							prop('user'),
-							when(isNil, () => {
-								throw new Error('Unauthorized')
-							}),
-							respondTo(res)(200)
-						)(req)
-					}
+					"GET users/sup": (req, res) => res.end('ok'),
+					"GET users/me" : (req: Express.Request, res: GatewayResponse) => respondTo(res)(200)({ message: 'ok' }) /*pipe(
+						prop('user'),
+						when(isNil, () => {
+							throw new Error('Unauthorized')
+						}),
+						respondTo(res)(200)
+					)(req),*/
 
 				},
 
-				mappingPolicy: "all", // Available values: "all", "restrict"
-
-				// Enable authentication. Implement the logic into `authenticate` method. More info: https://moleculer.services/docs/0.14/moleculer-web.html#Authentication
-				authentication: false,
-
-				// Enable authorization. Implement the logic into `authorize` method. More info: https://moleculer.services/docs/0.14/moleculer-web.html#Authorization
-				authorization: false,
-
-				callOptions: {},
-
-				bodyParsers: {
-					json: {
-						strict: false,
-						limit: "1MB",
-					},
-					urlencoded: {
-						extended: true,
-						limit: "1MB",
-					},
+				onError(req, res, err) {
+					res.setHeader("Content-Type", "application/json; charset=utf-8");
+					res.writeHead(500);
+					 /*
+					  *TODO: Moos, please don't send the error directly.
+					  * Write an error pipeline. Yes. Cond is a good choice here.
+					  */
+					res.end(JSON.stringify(err));
 				},
 
-				logging: true,
-			}
-		],
+			mappingPolicy: "all", // Available values: "all", "restrict"
+
+			// Enable authentication. Implement the logic into `authenticate` method. More info: https://moleculer.services/docs/0.14/moleculer-web.html#Authentication
+			authentication: false,
+
+			// Enable authorization. Implement the logic into `authorize` method. More info: https://moleculer.services/docs/0.14/moleculer-web.html#Authorization
+			authorization: false,
+
+			callOptions: {},
+
+			bodyParsers: {
+				json: {
+					strict: false,
+					limit: "1MB",
+				},
+				urlencoded: {
+					extended: true,
+					limit: "1MB",
+				},
+			},
+
+			logging: true,
+		}],
 
 		// Do not log client side errors (does not log an error response when the error.code is 400<=X<500)
 		log4XXResponses: false,
@@ -253,8 +237,8 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 					return { id: 1, name: "John Doe" };
 				}
 				// Invalid token
-				throw new ApiGateway.Errors.UnAuthorizedError(
-					ApiGateway.Errors.ERR_INVALID_TOKEN,
+				throw new apiGateway.Errors.UnAuthorizedError(
+					apiGateway.Errors.ERR_INVALID_TOKEN,
 					null,
 				);
 			} else {
@@ -275,14 +259,45 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 
 			// It check the `auth` property in action schema.
 			if (req.$action.auth === "required" && !user) {
-				throw new ApiGateway.Errors.UnAuthorizedError("NO_RIGHTS", null);
+				throw new apiGateway.Errors.UnAuthorizedError("NO_RIGHTS", null);
 			}
 		},
 	},
 
-	async created() {
+	async created () {
 		console.log('created');
+		const db = new BetterSqlite3('session.db', { verbose: console.log });
+
 		setupPassportLocalStrategy(this.broker, passport);
+		const app = express()
+		app.use(session({
+			secret: process.env.COOKIE_SECRET ?? "supersecret",
+			resave: false,
+			saveUninitialized: false,
+			store: new betterSQLiteStore({
+				client: db,
+				expired: {
+					clear: true,
+					interval: 60 * 60 * 1000,
+				}
+			}),
+			cookie: {
+				httpOnly: true,
+				maxAge: 24 * 60 * 60 * 1000,
+			}
+		}))
+
+		app.use(
+			passport.initialize(),
+			passport.session(),
+		)
+		app.use(this.express())
+
+		this.server = app.listen(8080)
+
+	},
+	stopped () {
+		(this.server as Server).close()
 	}
 };
 

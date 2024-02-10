@@ -32,6 +32,7 @@ export const setupPassportLocalStrategy = (broker: Moleculer.ServiceBroker, pass
         const foundUser: GetUserResponse = await broker.call("users.get", { id });
 
         if (!foundUser) {
+			console.log('I AM ERROR')
             return done(new UserNotFoundError());
         }
 
