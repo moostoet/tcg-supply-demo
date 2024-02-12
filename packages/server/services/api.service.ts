@@ -213,7 +213,9 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
    		 */
 		authorize(ctx: Context<null, Meta>, route: Route, req: IncomingRequest) {
 			const { user } = ctx.meta;
-
+			if (!req.$action) {
+				return this.logger.trace('Action-less call')
+			}
 			if (req.$action.auth && !user) {
 				// TODO: Consider changing this. NO_RIGHTS is not standardised, maybe consider alternative.
 				throw new apiGateway.Errors.UnAuthorizedError("NO_RIGHTS", null);
