@@ -6,6 +6,7 @@ import type { DbServiceMethods } from "../mixins/db.mixin";
 import { omit } from "ramda";
 import { find } from "../actions/user/find";
 import { get } from "../actions/user/get";
+import { Env } from '../lib/env';
 
 export type UserEntity = {
     id: string;
@@ -58,8 +59,7 @@ const UsersService: ServiceSchema<UserSettings> & { methods: DbServiceMethods } 
 
     async started() {
         console.log('started');
-        console.log(process.env.MONGO_URI);
-        if (process.env.MONGO_URI) connect(process.env.MONGO_URI).
+        if (Env.MONGO_URI) connect(Env.MONGO_URI).
             catch(error => console.error(error));
 
         connection.on('connected', () => console.log(`${this.name} connected`));
