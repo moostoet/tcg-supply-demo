@@ -136,9 +136,7 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 				],
 
 				use: [
-					passport.authenticate("local", {
-						failWithError: true
-					}),
+					passport.authenticate("local"),
 				],
 
 				mergeParams: true,
@@ -265,7 +263,7 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 	},
 
 	async created () {
-		console.log('created');
+		this.logger.info('Created');
 		const db = new BetterSqlite3('session.db', { verbose: console.log });
 
 		setupPassportLocalStrategy(this.broker, passport);
