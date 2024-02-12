@@ -23,12 +23,12 @@ const AuthService: ServiceSchema = {
 
     methods: {},
 
-    async started() {
+    /*async started() {
         if (process.env.MONGO_URI) connect(process.env.MONGO_URI)
             .catch(error => console.error(error))
 
         connection.on('connected', () => console.log(`${this.name} connected`))
-    }
+    }*/
 }
 
 export default AuthService;
