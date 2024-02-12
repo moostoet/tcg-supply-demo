@@ -1,13 +1,13 @@
+import { Server } from 'node:http';
 import BetterSqlite3 from "better-sqlite3";
 import express from 'express';
 import session from "express-session";
+import passport from "passport";
 import type { Context, ServiceSchema, Service } from "moleculer";
 import type { ApiSettingsSchema, GatewayResponse, IncomingRequest, Route } from "moleculer-web";
 import apiGateway from "moleculer-web";
-import passport from "passport";
 import { isNil, pipe, prop, when } from "ramda";
 import { setupPassportLocalStrategy } from "../passport/passport";
-import { Server } from 'node:http';
 
 const betterSQLiteStore = require('better-sqlite3-session-store')(session);
 
@@ -39,7 +39,7 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 		server: false,
 		// Global Express middlewares. More info: https://moleculer.services/docs/0.14/moleculer-web.html#Middlewares
 		use: [
-
+			// consider adding it to *app* instead.
 		],
 
 		cors: {
@@ -133,25 +133,18 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 			},
 			{
 				path: "/auth",
-
-				whitelist: [],
-
-				use: [],
-
 				mergeParams: true,
-
 				autoAliases: false,
-
 				aliases: {
-					'POST auth/login': [
+					'POST login': [
 						passport.authenticate("local"),
 						"auth.login"
 					],
-					'POST auth/logout': async (req: Express.Request, res: GatewayResponse) => [
+					'POST logout': async (req: Express.Request, res: GatewayResponse) => [
 						passport.authenticate("local"),
 						req.logout(() => respondTo(res)(200)({ message: 'OK' }))
 					],
-					'POST auth/register': 'auth.register',
+					'POST register': 'auth.register',
 				},
 
 				onError(req, res, err) {
@@ -165,15 +158,6 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 				},
 
 				mappingPolicy: "all", // Available values: "all", "restrict"
-
-				// Enable authentication. Implement the logic into `authenticate` method. More info: https://moleculer.services/docs/0.14/moleculer-web.html#Authentication
-				authentication: false,
-
-				// Enable authorization. Implement the logic into `authorize` method. More info: https://moleculer.services/docs/0.14/moleculer-web.html#Authorization
-				authorization: false,
-
-				callOptions: {},
-
 				bodyParsers: {
 					json: {
 						strict: false,
@@ -211,19 +195,11 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 
 	methods: {
 		/**
-		 * Authenticate the request. It check the `Authorization` token value in the request header.
-		 * Check the token value & resolve the user by the token.
+		 * Authenticate the request.
+		 * Get user from session.
 		 * The resolved user will be available in `ctx.meta.user`
-		 *
-		 * PLEASE NOTE, IT'S JUST AN EXAMPLE IMPLEMENTATION. DO NOT USE IN PRODUCTION!
 		 */
 
-
-		/**
-		 * Authorize the request. Check that the authenticated user has right to access the resource.
-		 *
-		 * PLEASE NOTE, IT'S JUST AN EXAMPLE IMPLEMENTATION. DO NOT USE IN PRODUCTION!
-		 */
 		authenticate(
 			ctx: Context<null, Meta>,
 			route: Route,
@@ -231,22 +207,28 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 		): Express.User | null {
 			return req.user ?? null
 		},
-
+		/**
+		 * Authorize the request. Check that the authenticated user has right to access the resource.
+		 *
+   		 */
 		authorize(ctx: Context<null, Meta>, route: Route, req: IncomingRequest) {
 			const { user } = ctx.meta;
 
 			if (req.$action.auth && !user) {
+				// TODO: Consider changing this. NO_RIGHTS is not standardised, maybe consider alternative.
 				throw new apiGateway.Errors.UnAuthorizedError("NO_RIGHTS", null);
 			}
 		},
 	},
 
 	async created(this: GWService) {
-		this.logger.info('Created');
-		const db = new BetterSqlite3('session.db', { verbose: this.logger.debug });
+		this.logger.info('Created')
 
-		setupPassportLocalStrategy(this.broker, passport);
 		const app = express()
+		const db = new BetterSqlite3('session.db', { verbose: this.logger.debug })
+
+		setupPassportLocalStrategy(this.broker, passport)
+
 		app.use(session({
 			secret: process.env.COOKIE_SECRET ?? "supersecret",
 			resave: false,
