@@ -2,7 +2,7 @@ import { promisify } from "node:util"
 import BetterSqlite3 from "better-sqlite3";
 import express from 'express';
 import session from "express-session";
-import type { Context, ServiceSchema } from "moleculer";
+import type { Context, ServiceSchema, Service } from "moleculer";
 import type { ApiSettingsSchema, GatewayResponse, IncomingRequest, Route } from "moleculer-web";
 import apiGateway from "moleculer-web";
 import passport from "passport";
@@ -12,7 +12,6 @@ import { Server } from 'node:http';
 const betterSQLiteStore = require('better-sqlite3-session-store')(session);
 
 const respondTo = (res: GatewayResponse) => (status: number) => (body: Record<keyof any, any>) => {
-	console.log("RESPONDING WITH: ", body);
 	res.writeHead(status, { "Content-Type": "application/json" });
 	res.end('ok');
 	//res.write(JSON.stringify(body))
@@ -23,6 +22,7 @@ interface Meta {
 	user?: object | null;
 }
 
+type GWService = Service & { server?: Server }
 const ApiService: ServiceSchema<ApiSettingsSchema> = {
 	name: "api",
 	mixins: [apiGateway],
@@ -190,11 +190,11 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 		}],
 
 		// Do not log client side errors (does not log an error response when the error.code is 400<=X<500)
-		log4XXResponses: false,
+		log4XXResponses: true,
 		// Logging the request parameters. Set to any log level to enable it. E.g. "info"
-		logRequestParams: null,
+		logRequestParams: 'debug',
 		// Logging the response data. Set to any log level to enable it. E.g. "info"
-		logResponseData: null,
+		logResponseData: 'debug',
 
 		// Serve assets from "public" folder. More info: https://moleculer.services/docs/0.14/moleculer-web.html#Serve-static-files
 		assets: {
@@ -262,7 +262,7 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 		},
 	},
 
-	async created () {
+	async created (this: GWService) {
 		this.logger.info('Created');
 		const db = new BetterSqlite3('session.db', { verbose: console.log });
 
@@ -291,11 +291,16 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 		)
 		app.use(this.express())
 
-		this.server = app.listen(8080)
+		this.server = app.listen(
+			8080, /* TODO: env me daddy */
+			() => this.logger.debug('Server listening.')
+		)
 
 	},
-	stopped () {
-		(this.server as Server).close()
+	stopped (this: GWService) {
+		this.server?.close(
+			() => this.logger.debug('Server closed.')
+		)
 	}
 };
 
