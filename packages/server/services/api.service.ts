@@ -65,10 +65,10 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 				mergeParams: true,
 
 				// Enable authentication. Implement the logic into `authenticate` method. More info: https://moleculer.services/docs/0.14/moleculer-web.html#Authentication
-				authentication: false,
+				authentication: true,
 
 				// Enable authorization. Implement the logic into `authorize` method. More info: https://moleculer.services/docs/0.14/moleculer-web.html#Authorization
-				authorization: false,
+				authorization: true,
 
 				// The auto-alias feature allows you to declare your route alias directly in your services.
 				// The gateway will dynamically build the full routes from service schema.
