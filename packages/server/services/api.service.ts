@@ -1,4 +1,3 @@
-import { promisify } from "node:util"
 import BetterSqlite3 from "better-sqlite3";
 import express from 'express';
 import session from "express-session";
@@ -7,7 +6,7 @@ import type { ApiSettingsSchema, GatewayResponse, IncomingRequest, Route } from 
 import apiGateway from "moleculer-web";
 import passport from "passport";
 import { isNil, pipe, prop, when } from "ramda";
-import { passportMinimalExample, setupPassportLocalStrategy } from "../passport/passport";
+import { setupPassportLocalStrategy } from "../passport/passport";
 import { Server } from 'node:http';
 
 const betterSQLiteStore = require('better-sqlite3-session-store')(session);
