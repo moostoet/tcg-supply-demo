@@ -8,6 +8,7 @@ import type { ApiSettingsSchema, GatewayResponse, IncomingRequest, Route } from 
 import apiGateway from "moleculer-web";
 import { isNil, pipe, prop, when } from "ramda";
 import { setupPassportLocalStrategy } from "../passport/passport";
+import { Env } from '../lib/env';
 
 const betterSQLiteStore = require('better-sqlite3-session-store')(session);
 
@@ -232,7 +233,7 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 		setupPassportLocalStrategy(this.broker, passport)
 
 		app.use(session({
-			secret: process.env.COOKIE_SECRET ?? "supersecret",
+			secret: Env.COOKIE_SECRET,
 			resave: false,
 			saveUninitialized: false,
 			store: new betterSQLiteStore({

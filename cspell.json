@@ -1,6 +1,6 @@
 {
     "version": "0.2",
-    "ignorePaths": ["node_modules", "/project-words.txt"],
+    "ignorePaths": ["node_modules", "./project-words.txt"],
     "dictionaryDefinitions": [ {
         "name": "project-words",
         "path": "./project-words.txt",
@@ -8,6 +8,7 @@
       }],
     "dictionaries": ["project-words", "en-gb", "softwareTerms", "typescript", "node", "npm", "filetypes"],
     "words": [],
+    "flagWords": ["process.env"],
     "ignoreWords": [],
     "import": []
 }
