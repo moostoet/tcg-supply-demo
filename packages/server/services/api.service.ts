@@ -54,12 +54,9 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 
 		routes: [
 			{
-				path: "/",
+				path: "/api",
 
-				whitelist: [
-					"auth.register",
-					"auth.login"
-				],
+				whitelist: [],
 
 				// Route-level Express middlewares. More info: https://moleculer.services/docs/0.14/moleculer-web.html#Middlewares
 				use: [],
@@ -78,15 +75,6 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 				autoAliases: false,
 
 				aliases: {
-					'POST auth/login': [
-						passport.authenticate("local"),
-						"auth.login"
-					],
-					'POST auth/logout': async (req: Express.Request, res: GatewayResponse) => [
-						passport.authenticate("local"),
-						req.logout(() => respondTo(res)(200)({ message: 'OK' }))
-					],
-					'POST auth/register': 'auth.register',
 					"GET users/me": (req: Express.Request, res: GatewayResponse) =>
 						pipe(
 							prop('user'),
@@ -145,22 +133,26 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 				logging: true,
 			},
 			{
-				path: "/api",
+				path: "/auth",
 
-				whitelist: [
-					"users.*",
-				],
+				whitelist: [],
 
-				use: [
-					passport.authenticate("local"),
-				],
+				use: [],
 
 				mergeParams: true,
 
-				autoAliases: true,
+				autoAliases: false,
 
 				aliases: {
-					"GET users/sup": (req, res) => res.end('ok'),
+					'POST auth/login': [
+						passport.authenticate("local"),
+						"auth.login"
+					],
+					'POST auth/logout': async (req: Express.Request, res: GatewayResponse) => [
+						passport.authenticate("local"),
+						req.logout(() => respondTo(res)(200)({ message: 'OK' }))
+					],
+					'POST auth/register': 'auth.register',
 				},
 
 				onError(req, res, err) {
@@ -234,12 +226,12 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 		 * PLEASE NOTE, IT'S JUST AN EXAMPLE IMPLEMENTATION. DO NOT USE IN PRODUCTION!
 		 */
 		authenticate(
-            ctx: Context<null, Meta>,
-            route: Route,
-            req: Express.Request,
-        ): Express.User | null {
-            return req.user ?? null
-        },
+			ctx: Context<null, Meta>,
+			route: Route,
+			req: Express.Request,
+		): Express.User | null {
+			return req.user ?? null
+		},
 
 		authorize(ctx: Context<null, Meta>, route: Route, req: IncomingRequest) {
 			const { user } = ctx.meta;
