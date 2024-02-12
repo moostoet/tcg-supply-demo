@@ -18,6 +18,7 @@ export function zodAction<
   action: Omit<OmitIndexSignature<ActionSchema>, 'params' | 'handler'> & {
     params: TParams;
     response: TResponse;
+    auth?: boolean;
     handler: (
       this: ServiceWithDb<TDocument>,
       ctx: Context<ZodInfer<TParams>, Meta>

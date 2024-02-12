@@ -32,10 +32,52 @@ export const setupPassportLocalStrategy = (broker: Moleculer.ServiceBroker, pass
         const foundUser: GetUserResponse = await broker.call("users.get", { id });
 
         if (!foundUser) {
-			console.log('I AM ERROR')
+            console.log('I AM ERROR')
             return done(new UserNotFoundError());
         }
 
         return done(null, foundUser);
     })
 }
+
+const user = {
+    email: 'ch@inmail.com',
+    id: '123',
+    password: 'secure'
+}
+
+const service = {
+    get: (id: string) => {
+        if (id !== user.id) throw new Error('Not Found')
+        return structuredClone(user)
+    },
+
+    login(email: string, password: string) {
+        if (email !== user.email) throw new Error('Not Found')
+        if (password !== user.password) throw new Error('Wrong Password')
+        return this.get(user.id)
+    }
+}
+
+export const passportMinimalExample = (passport: PassportStatic) => {
+    passport.use(new LocalStrategy((username, password, cb) => {
+        console.log("USING LOCAL STRATEGY...")
+        const user = service.get('123');
+
+        if (!user) return cb("User Not Found");
+
+        service.login(user.email, user.password);
+    }));
+
+    passport.serializeUser((user: any, cb) => {
+        process.nextTick(() => {
+            cb(null, { id: user.id, username: user.username });
+        })
+    })
+
+    passport.deserializeUser((user: any, cb) => {
+        process.nextTick(() => {
+            return cb(null, user);
+        })
+    })
+} 

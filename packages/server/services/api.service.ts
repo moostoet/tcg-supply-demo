@@ -7,14 +7,22 @@ import type { ApiSettingsSchema, GatewayResponse, IncomingRequest, Route } from 
 import apiGateway from "moleculer-web";
 import passport from "passport";
 import { isNil, pipe, prop, when } from "ramda";
-import { setupPassportLocalStrategy } from "../passport/passport";
+import { passportMinimalExample, setupPassportLocalStrategy } from "../passport/passport";
 import { Server } from 'node:http';
+
 const betterSQLiteStore = require('better-sqlite3-session-store')(session);
+
+const errorHandler: express.ErrorRequestHandler = (err, req, res, next) => {
+	if (res.headersSent) {
+		return next(err)
+	}
+	res.status(500)
+	res.json({ error: err.message })
+}
 
 const respondTo = (res: GatewayResponse) => (status: number) => (body: Record<keyof any, any>) => {
 	res.writeHead(status, { "Content-Type": "application/json" });
-	res.end('ok');
-	//res.write(JSON.stringify(body))
+	res.end(JSON.stringify(body));
 }
 
 interface Meta {
@@ -78,7 +86,15 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 						passport.authenticate("local"),
 						req.logout(() => respondTo(res)(200)({ message: 'OK' }))
 					],
-					'POST auth/register': 'auth.register'
+					'POST auth/register': 'auth.register',
+					"GET users/me": (req: Express.Request, res: GatewayResponse) =>
+						pipe(
+							prop('user'),
+							when(isNil, () => {
+								throw new Error('Unauthorized')
+							}),
+							respondTo(res)(200)
+						)(req),
 				},
 				/**
 				 * Before call hook. You can check the request.
@@ -145,49 +161,41 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 
 				aliases: {
 					"GET users/sup": (req, res) => res.end('ok'),
-					"GET users/me" : (req: Express.Request, res: GatewayResponse) => respondTo(res)(200)({ message: 'ok' }) /*pipe(
-						prop('user'),
-						when(isNil, () => {
-							throw new Error('Unauthorized')
-						}),
-						respondTo(res)(200)
-					)(req),*/
-
 				},
 
 				onError(req, res, err) {
 					res.setHeader("Content-Type", "application/json; charset=utf-8");
 					res.writeHead(500);
-					 /*
-					  *TODO: Moos, please don't send the error directly.
-					  * Write an error pipeline. Yes. Cond is a good choice here.
-					  */
+					/*
+					 *TODO: Moos, please don't send the error directly.
+					 * Write an error pipeline. Yes. Cond is a good choice here.
+					 */
 					res.end(JSON.stringify(err));
 				},
 
-			mappingPolicy: "all", // Available values: "all", "restrict"
+				mappingPolicy: "all", // Available values: "all", "restrict"
 
-			// Enable authentication. Implement the logic into `authenticate` method. More info: https://moleculer.services/docs/0.14/moleculer-web.html#Authentication
-			authentication: false,
+				// Enable authentication. Implement the logic into `authenticate` method. More info: https://moleculer.services/docs/0.14/moleculer-web.html#Authentication
+				authentication: false,
 
-			// Enable authorization. Implement the logic into `authorize` method. More info: https://moleculer.services/docs/0.14/moleculer-web.html#Authorization
-			authorization: false,
+				// Enable authorization. Implement the logic into `authorize` method. More info: https://moleculer.services/docs/0.14/moleculer-web.html#Authorization
+				authorization: false,
 
-			callOptions: {},
+				callOptions: {},
 
-			bodyParsers: {
-				json: {
-					strict: false,
-					limit: "1MB",
+				bodyParsers: {
+					json: {
+						strict: false,
+						limit: "1MB",
+					},
+					urlencoded: {
+						extended: true,
+						limit: "1MB",
+					},
 				},
-				urlencoded: {
-					extended: true,
-					limit: "1MB",
-				},
-			},
 
-			logging: true,
-		}],
+				logging: true,
+			}],
 
 		// Do not log client side errors (does not log an error response when the error.code is 400<=X<500)
 		log4XXResponses: true,
@@ -218,53 +226,33 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 		 *
 		 * PLEASE NOTE, IT'S JUST AN EXAMPLE IMPLEMENTATION. DO NOT USE IN PRODUCTION!
 		 */
-		authenticate(
-			ctx: Context,
-			route: Route,
-			req: IncomingRequest,
-		): Record<string, unknown> | null {
-			// Read the token from header
-			const auth = req.headers.authorization;
 
-			if (auth && auth.startsWith("Bearer")) {
-				const token = auth.slice(7);
-
-				// Check the token. Tip: call a service which verify the token. E.g. `accounts.resolveToken`
-				if (token === "123456") {
-					// Returns the resolved user. It will be set to the `ctx.meta.user`
-					return { id: 1, name: "John Doe" };
-				}
-				// Invalid token
-				throw new apiGateway.Errors.UnAuthorizedError(
-					apiGateway.Errors.ERR_INVALID_TOKEN,
-					null,
-				);
-			} else {
-				// No token. Throw an error or do nothing if anonymous access is allowed.
-				// throw new E.UnAuthorizedError(E.ERR_NO_TOKEN);
-				return null;
-			}
-		},
 
 		/**
 		 * Authorize the request. Check that the authenticated user has right to access the resource.
 		 *
 		 * PLEASE NOTE, IT'S JUST AN EXAMPLE IMPLEMENTATION. DO NOT USE IN PRODUCTION!
 		 */
+		authenticate(
+            ctx: Context<null, Meta>,
+            route: Route,
+            req: Express.Request,
+        ): Express.User | null {
+            return req.user ?? null
+        },
+
 		authorize(ctx: Context<null, Meta>, route: Route, req: IncomingRequest) {
-			// Get the authenticated user.
 			const { user } = ctx.meta;
 
-			// It check the `auth` property in action schema.
-			if (req.$action.auth === "required" && !user) {
+			if (req.$action.auth && !user) {
 				throw new apiGateway.Errors.UnAuthorizedError("NO_RIGHTS", null);
 			}
 		},
 	},
 
-	async created (this: GWService) {
+	async created(this: GWService) {
 		this.logger.info('Created');
-		const db = new BetterSqlite3('session.db', { verbose: console.log });
+		const db = new BetterSqlite3('session.db', { verbose: this.logger.debug });
 
 		setupPassportLocalStrategy(this.broker, passport);
 		const app = express()
@@ -291,13 +279,15 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 		)
 		app.use(this.express())
 
+		app.use(errorHandler);
+
 		this.server = app.listen(
-			8080, /* TODO: env me daddy */
+			8080,
 			() => this.logger.debug('Server listening.')
 		)
 
 	},
-	stopped (this: GWService) {
+	stopped(this: GWService) {
 		this.server?.close(
 			() => this.logger.debug('Server closed.')
 		)
