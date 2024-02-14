@@ -9,8 +9,7 @@
                 <v-card class="mx-auto pa-8 d-flex flex-column ga-3 mt-3" max-width="448">
                     <p class="font-weight-bold text-h5">Sign in to your account</p>
 
-                    <v-alert v-show="data.error" type="error"
-                        :text="errorMessage">
+                    <v-alert v-show="Auth.state.value.error" type="error" :text="errorMessage">
                     </v-alert>
                     <v-form @submit.prevent="onSubmit" ref="formRef">
                         <div>
@@ -35,7 +34,7 @@
                             <a class="text-caption text-decoration-none text-blue mt-n5">Forgot password?</a>
                         </div>
 
-                        <v-btn block class="mt-3" variant="outlined" type="submit" :loading="isFetching">Sign in</v-btn>
+                        <v-btn block class="mt-3" variant="outlined" type="submit" :loading="Auth.fetching.value">Sign in</v-btn>
                     </v-form>
 
                     <p class="text-caption">No account yet? <router-link to="/register"
@@ -49,13 +48,11 @@
 
 <script setup lang="ts">
 import router from '@/router';
-import { useLogin } from '@/services/users/login';
-import { useEventBus } from '@vueuse/core';
+import { get, useEventBus } from '@vueuse/core';
 import { computed, reactive, ref, watch } from 'vue';
+import * as Auth from "../use/auth";
 
-const { emit } = useEventBus<{text: string}>('showSnackbar');
-
-const { login, data, isFetching } = useLogin();
+const { emit } = useEventBus<{ text: string }>('showSnackbar');
 
 const formRef = ref();
 
@@ -67,11 +64,11 @@ const form = reactive({
 });
 
 const errorMessage = computed(() => {
-    switch(data.error?.code) {
+    switch (get(Auth.state).error?.code) {
         case 422:
             return 'The e-mail address you have entered is already in use.';
         default:
-            return 'Something went wrong during the creation of your account. Please try again later.';
+            return 'Something went wrong. Please check your credentials and try again.';
     }
 })
 
@@ -95,19 +92,17 @@ const onSubmit = async () => {
         password: form.password
     }
 
-    await login(formData);
-
-    if (data.data?.email) {
-        console.log("Emitting...");
-        emit({ text: 'Logged in successfully' });
-        router.push('/');
-    }
+    Auth.apply(Auth.Mutations.login, formData);
 
     formRef.value.reset();
 }
 
-watch(data, (newData) => {
-    console.log(newData);
+watch(Auth.state, (newState) => {
+    console.log(newState);
+    if (newState.data.email) {
+        emit({ text: 'You have successfully logged in.' });
+        router.push('/');
+    }
 })
 
 </script>

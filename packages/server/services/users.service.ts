@@ -7,6 +7,7 @@ import { omit } from "ramda";
 import { find } from "../actions/user/find";
 import { get } from "../actions/user/get";
 import { Env } from '../lib/env';
+import { create } from "../actions/user/create";
 
 export type UserEntity = {
     id: string;
@@ -51,7 +52,8 @@ const UsersService: ServiceSchema<UserSettings> & { methods: DbServiceMethods } 
 
     actions: {
         find,
-        get
+        get,
+        create
     },
 
     methods: {

@@ -1,11 +1,9 @@
 import { MongoServerError } from "mongodb";
-import { createUserRequestS, createUserResponseS } from "../../../shared/schemas/user/register";
+import { CreateUserResponse, createUserRequestS, createUserResponseS } from "../../../shared/schemas/user/register";
 import { AuthService } from "../../lib/types";
 import { zodAction } from "../../lib/zodAction";
-import User from "../../schemas/User";
 import * as F from "../../lib/functions";
 import { UserEntitySafe } from "../../services/users.service";
-import * as argon2 from "argon2";
 import { T, both, cond, identity, is, whereEq } from "ramda";
 import { DuplicateFieldError } from "../../lib/errors/DuplicateFieldError";
 
@@ -21,11 +19,12 @@ export const register = zodAction({
 
     async handler(this: AuthService, ctx): Promise<UserEntitySafe> {
         try {
-            ctx.params.password = await argon2.hash(ctx.params.password);
-            const user = await User.create(ctx.params);
+            const user: CreateUserResponse = await this.broker.call("users.create",
+                { email: ctx.params.email, password: ctx.params.password });
+
             return {
                 email: user.email,
-                id: user._id.toString()
+                id: user.id.toString()
             }
         } catch (error: unknown) {
             throw cond([

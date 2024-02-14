@@ -7,6 +7,8 @@ export const create = <T extends any[], U>(classType: new (...args: T) => U) =>
 
 type NormalisableDocument = Document<any> | HydratedDocument<any>;
 
+export const required = <T>(type: T) => ({ type, required: true });
+
 interface NormalisedObject {
     id: string;
     [key: string]: any;

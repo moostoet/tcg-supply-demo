@@ -6,8 +6,8 @@ import { isNotNil } from "ramda";
 
 const APIErrorS = z.object({
     code: z.number(),
-    message: z.string(),
     type: z.string(),
+    retryable: z.boolean(),
 })
 
 export type APIError = z.infer<typeof APIErrorS>
@@ -32,15 +32,21 @@ export const useAPIFetch = createFetch({
     },
 });
 
-export const useApi = <RequestSchema extends ZodTypeAny, ResponseSchema extends ZodTypeAny>
-    (path: string, requestSchema: RequestSchema, responseSchema: ResponseSchema,
-        method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
-        additionalOptions?: FetchOptions) => {
-    type RequestSchemaType = z.infer<typeof requestSchema>;
-    type ResponseSchemaType = z.infer<typeof responseSchema>;
+export const useApi = <RequestSchema extends ZodTypeAny = ZodTypeAny, ResponseSchema extends ZodTypeAny = ZodTypeAny>(
+    type: 'api' | 'auth',
+    path: string,
+    responseSchema: ResponseSchema,
+    requestSchema?: RequestSchema,
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
+    additionalOptions?: FetchOptions
+) => {
+    type RequestSchemaType = RequestSchema extends ZodTypeAny ? z.infer<RequestSchema> : any;
+    type ResponseSchemaType = ResponseSchema extends ZodTypeAny ? z.infer<ResponseSchema> : any;
     const body = ref<RequestSchemaType | undefined>(undefined);
 
-    const { data, error, execute, isFetching } = useAPIFetch(path, {
+    const fullPath = `${type}${path}`;
+
+    const { data, error, execute, isFetching } = useAPIFetch(fullPath, {
         method,
         headers: {
             'Content-Type': 'application/json'
@@ -48,8 +54,10 @@ export const useApi = <RequestSchema extends ZodTypeAny, ResponseSchema extends 
         ...additionalOptions,
     }, {
         beforeFetch({ options }) {
-            if (body.value) {
-                options.body = JSON.stringify(body.value)
+            if (body.value && requestSchema) {
+                options.body = JSON.stringify(requestSchema.parse(body.value));
+            } else if (body.value) {
+                options.body = JSON.stringify(body.value);
             }
 
             return { options };
@@ -62,25 +70,24 @@ export const useApi = <RequestSchema extends ZodTypeAny, ResponseSchema extends 
     });
 
     const setErrorState = (error: APIError) => {
-        state.data = undefined
-        state.error = error
-    }
+        state.data = undefined;
+        state.error = error;
+    };
 
     const setDataState = (data: ResponseSchemaType) => {
-        state.data = data
-        state.error = undefined
-    }
+        state.data = data;
+        state.error = undefined;
+    };
 
     const exec = async (requestBody?: RequestSchemaType) => {
-
-        console.log("REQUEST BODY IS: ", requestBody);
-
-        if (requestBody) set(body, requestBody);
+        if (requestBody) {
+            body.value = requestBody;
+        }
 
         await execute();
 
         return isNotNil(get(error)) ? setErrorState(APIErrorS.parse(data.value)) : setDataState(responseSchema.parse(data.value));
-    }
+    };
 
-    return { exec, state, isFetching }
-}
+    return { exec, state, isFetching };
+};

@@ -211,7 +211,7 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 		/**
 		 * Authorize the request. Check that the authenticated user has right to access the resource.
 		 *
-   		 */
+				 */
 		authorize(ctx: Context<null, Meta>, route: Route, req: IncomingRequest) {
 			const { user } = ctx.meta;
 			if (!req.$action) {
