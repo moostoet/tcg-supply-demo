@@ -15,8 +15,6 @@ export const Mutations = Object.freeze({
 
 const creds = ref<LoginUserRequest | undefined>(undefined);
 
-type AuthMutation = typeof Mutations[keyof typeof Mutations];
-
 export const useAuthFetch = createFetch({
     baseUrl: import.meta.env.VITE_API_BASE_URL,
     fetchOptions: {
