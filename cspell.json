@@ -8,7 +8,7 @@
       }],
     "dictionaries": ["project-words", "en-gb", "softwareTerms", "typescript", "node", "npm", "filetypes"],
     "words": [],
-    "flagWords": ["process.env"],
+    "flagWords": ["process.env", "process.env.MONGO_URI"],
     "ignoreWords": [],
     "import": []
 }
