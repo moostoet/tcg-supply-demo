@@ -1,4 +1,4 @@
-import { ref, computed, ComputedRef } from 'vue';
+import { ref, computed, ComputedRef, readonly } from 'vue';
 import { useLogin } from '../services/users/login';
 import { LoginUserRequest, LoginUserResponse, loginUserResponseS } from '../../../shared/schemas/user/login';
 import { useLogout } from '../services/users/logout';
@@ -66,7 +66,7 @@ export const state = computed<State>(() => pipe(
     tap(console.log),
 )(data))
 
-export const fetching = computed(() => get(isFetching));
+export const fetching = readonly(isFetching);
 
 type Mutation = typeof Mutations[keyof typeof Mutations]
 type MutationsWithCredentials = typeof Mutations['login' | 'register']
