@@ -3,8 +3,7 @@ import { reactive, ref } from "vue";
 import { ZodTypeAny, z } from "zod";
 import { isNotNil } from "ramda";
 
-
-const APIErrorS = z.object({
+export const APIErrorS = z.object({
     code: z.number(),
     type: z.string(),
     retryable: z.boolean(),

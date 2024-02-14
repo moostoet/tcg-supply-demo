@@ -3,7 +3,7 @@ import { useLogin } from '../services/users/login';
 import { LoginUserRequest, LoginUserResponse, loginUserResponseS } from '../../../shared/schemas/user/login';
 import { useLogout } from '../services/users/logout';
 import { createFetch, get, set } from '@vueuse/core';
-import { T, always, assoc, cond, find, has, identity, ifElse, includes, isNotNil, pathEq, pipe, prop, propSatisfies, tap, unless, when } from 'ramda';
+import { T, __, always, applyTo, assoc, call, cond, converge, find, has, identity, ifElse, includes, isNotNil, map, pathEq, pipe, prop, propSatisfies, tap, unless, when } from 'ramda';
 import { APIError, APIErrorS } from './api';
 
 export const Mutations = Object.freeze({
@@ -59,10 +59,11 @@ const propIsNotNil = propSatisfies(isNotNil);
 // handleResponse should run logic e.g. setErrorState/setDataState based on which prop is available
 // this should be done using zod parsing (schema.parse). look at: https://github.com/causaly/zod-validation-error
 
-const dataOfSuccessElement = pipe(
-    find(prop('success')),
-    prop('data')
-);
+const toDataOrErrorRes: (res: unknown) => APIError | LoginUserResponse | null = pipe(
+  (res: unknown) => map(fn => fn(res), [APIErrorS.safeParse, loginUserResponseS.safeParse]),
+  find(prop('success')),
+  (e) => e?.success ? e.data : null
+)
 
 const transformResponse = (response: LoginUserResponse) => cond([
     [has('error'), identity],
