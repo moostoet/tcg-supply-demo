@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue';
+import { ref, computed, ComputedRef } from 'vue';
 import { useLogin } from '../services/users/login';
 import { LoginUserRequest, LoginUserResponse, loginUserResponseS } from '../../../shared/schemas/user/login';
 import { useLogout } from '../services/users/logout';
@@ -54,39 +54,18 @@ const { data, error, execute, isFetching } = useAuthFetch(url, {
     },
 }).json();
 
-const propIsNotNil = propSatisfies(isNotNil);
-
-// handleResponse should run logic e.g. setErrorState/setDataState based on which prop is available
-// this should be done using zod parsing (schema.parse). look at: https://github.com/causaly/zod-validation-error
-
 const toDataOrErrorRes: (res: unknown) => APIError | LoginUserResponse | null = pipe(
   (res: unknown) => map(fn => fn(res), [APIErrorS.safeParse, loginUserResponseS.safeParse]),
   find(prop('success')),
   (e) => e?.success ? e.data : null
 )
 
-const transformResponse = (response: LoginUserResponse) => cond([
-    [has('error'), identity],
-    [T, (resp) => ({
-        data: resp,
-        error: undefined
-    })]
-])(response);
+type State = LoginUserResponse | APIError | null;
 
-const handleAuthResponse = ifElse(
-    propIsNotNil('error'),
-    prop('error'),
-    cond([
-        [isNotNil, pipe(
-            transformResponse,
-        )],
-        [T, always({ data: undefined, error: undefined })]
-    ])
-);
-
-export const state = computed(() => pipe(
+export const state = computed<State>(() => pipe(
     prop('value'),
-    handleAuthResponse,
+    toDataOrErrorRes,
+    tap(console.log),
 )(data))
 
 export const fetching = computed(() => get(isFetching));

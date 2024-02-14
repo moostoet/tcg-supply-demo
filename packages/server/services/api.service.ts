@@ -12,6 +12,7 @@ import { setupPassportLocalStrategy } from "../passport/passport";
 import { Env } from '../lib/env';
 import { APIError, APIErrorS } from '../../shared/schemas/error'
 import * as F from '../lib/functions'
+import { UnauthorizedError } from '../lib/errors/UnauthorizedError';
 
 const betterSQLiteStore = require('better-sqlite3-session-store')(session);
 
@@ -23,11 +24,11 @@ const respondWithErrorTo = (res: express.Response) => (error: APIError) => res.s
 
 const isMoleculerError = is(Errors.MoleculerError)
 const parseUnhandled = cond([
-  [T, pipe(always('Something went wrong'), F.create(Errors.MoleculerServerError))]
+	[T, pipe(always('Something went wrong'), F.create(Errors.MoleculerServerError))]
 ])
 const parseError = pipe(
-  unless(isMoleculerError, parseUnhandled),
-  APIErrorS.parse,
+	unless(isMoleculerError, parseUnhandled),
+	APIErrorS.parse,
 )
 const errorHandler: express.ErrorRequestHandler = (err, req, res, next) => ifElse(
 	(e) => res.headersSent,
@@ -92,7 +93,7 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 						pipe(
 							prop('user'),
 							when(isNil, () => {
-								throw new Error('Unauthorized')
+								throw new UnauthorizedError('Unauthorized');
 							}),
 							respondTo(res)(200)
 						)(req),
