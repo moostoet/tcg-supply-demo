@@ -7,7 +7,7 @@ import type { Context, ServiceSchema, Service, } from "moleculer";
 import { Errors } from 'moleculer'
 import type { ApiSettingsSchema, GatewayResponse, IncomingRequest, Route } from "moleculer-web";
 import apiGateway from "moleculer-web";
-import { T, always, cond, ifElse, is, isNil, pipe, prop, unless, when } from "ramda";
+import { T, __, always, cond, curry, ifElse, is, isNil, pipe, prop, unless, when } from "ramda";
 import { setupPassportLocalStrategy } from "../passport/passport";
 import { Env } from '../lib/env';
 import { APIError, APIErrorS } from '../../shared/schemas/error'
@@ -16,15 +16,21 @@ import { UnauthorizedError } from '../lib/errors/UnauthorizedError';
 
 const betterSQLiteStore = require('better-sqlite3-session-store')(session);
 
-const respondTo = (res: GatewayResponse) => (status: number) => (body: Record<keyof any, any>) => {
-	res.writeHead(status, { "Content-Type": "application/json" });
-	res.end(JSON.stringify(body));
-}
+const respondTo = (res: GatewayResponse) => (status: number) => (body: Record<keyof any, any>) => ifElse(
+	() => res.headersSent,
+	T,
+	() => {
+		res.writeHead(status, { "Content-Type": "application/json" })
+		res.end(JSON.stringify(body))
+    }
+)()
+
 const respondWithErrorTo = (res: express.Response) => (error: APIError) => res.status(error.code).json(error)
 
 const isMoleculerError = is(Errors.MoleculerError)
 const parseUnhandled = cond([
-	[T, pipe(always('Something went wrong'), F.create(Errors.MoleculerServerError))]
+	// maybe a 500 error but whatever for now
+	[T, pipe(always('Something went wrong'), curry(F.create(apiGateway.Errors.BadRequestError))(__, 'null'))]
 ])
 const parseError = pipe(
 	unless(isMoleculerError, parseUnhandled),
@@ -89,13 +95,17 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 				autoAliases: false,
 
 				aliases: {
-					"GET users/me": (req: Express.Request, res: GatewayResponse) =>
+					"GET users/me": (req: IncomingRequest, res: GatewayResponse) =>
 						pipe(
 							prop('user'),
-							when(isNil, () => {
-								throw new UnauthorizedError('Unauthorized');
-							}),
-							respondTo(res)(200)
+							ifElse(
+								isNil,
+								() => pipe(
+									F.create(apiGateway.Errors.UnAuthorizedError),
+									req.$next
+								)("NO_RIGHTS", null),
+								respondTo(res)(200)
+							)
 						)(req),
 				},
 				/**
@@ -162,9 +172,7 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 					'POST register': 'auth.register',
 				},
 
-				onError(req, res, err) {
 
-				},
 
 				mappingPolicy: "all", // Available values: "all", "restrict"
 				bodyParsers: {
