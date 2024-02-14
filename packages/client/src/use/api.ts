@@ -3,13 +3,7 @@ import { reactive, ref } from "vue";
 import { ZodTypeAny, z } from "zod";
 import { isNotNil } from "ramda";
 
-export const APIErrorS = z.object({
-    code: z.number(),
-    type: z.string(),
-    retryable: z.boolean(),
-})
-
-export type APIError = z.infer<typeof APIErrorS>
+import { APIError, APIErrorS } from '../../../shared/schemas/error'
 
 type Response<T> = {
     data?: T;

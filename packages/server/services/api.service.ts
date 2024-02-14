@@ -3,27 +3,40 @@ import BetterSqlite3 from "better-sqlite3";
 import express from 'express';
 import session from "express-session";
 import passport from "passport";
-import type { Context, ServiceSchema, Service } from "moleculer";
+import type { Context, ServiceSchema, Service, } from "moleculer";
+import { Errors } from 'moleculer'
 import type { ApiSettingsSchema, GatewayResponse, IncomingRequest, Route } from "moleculer-web";
 import apiGateway from "moleculer-web";
-import { isNil, pipe, prop, when } from "ramda";
+import { T, always, cond, ifElse, is, isNil, pipe, prop, unless, when } from "ramda";
 import { setupPassportLocalStrategy } from "../passport/passport";
 import { Env } from '../lib/env';
+import { APIError, APIErrorS } from '../../shared/schemas/error'
+import * as F from '../lib/functions'
 
 const betterSQLiteStore = require('better-sqlite3-session-store')(session);
-
-const errorHandler: express.ErrorRequestHandler = (err, req, res, next) => {
-	if (res.headersSent) {
-		return next(err)
-	}
-	res.status(500)
-	res.json({ error: err.message })
-}
 
 const respondTo = (res: GatewayResponse) => (status: number) => (body: Record<keyof any, any>) => {
 	res.writeHead(status, { "Content-Type": "application/json" });
 	res.end(JSON.stringify(body));
 }
+const respondWithErrorTo = (res: express.Response) => (error: APIError) => res.status(error.code).json(error)
+
+const isMoleculerError = is(Errors.MoleculerError)
+const parseUnhandled = cond([
+  [T, pipe(always('Something went wrong'), F.create(Errors.MoleculerServerError))]
+])
+const parseError = pipe(
+  unless(isMoleculerError, parseUnhandled),
+  APIErrorS.parse,
+)
+const errorHandler: express.ErrorRequestHandler = (err, req, res, next) => ifElse(
+	(e) => res.headersSent,
+	next,
+	pipe(
+		parseError,
+		respondWithErrorTo(res)
+	)
+)(err)
 
 interface Meta {
 	userAgent?: string | null;
@@ -149,13 +162,7 @@ const ApiService: ServiceSchema<ApiSettingsSchema> = {
 				},
 
 				onError(req, res, err) {
-					res.setHeader("Content-Type", "application/json; charset=utf-8");
-					res.writeHead(500);
-					/*
-					 *TODO: Moos, please don't send the error directly.
-					 * Write an error pipeline. Yes. Cond is a good choice here.
-					 */
-					res.end(JSON.stringify(err));
+
 				},
 
 				mappingPolicy: "all", // Available values: "all", "restrict"

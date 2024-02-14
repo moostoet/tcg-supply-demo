@@ -4,7 +4,7 @@ import { LoginUserRequest, LoginUserResponse, loginUserResponseS } from '../../.
 import { useLogout } from '../services/users/logout';
 import { createFetch, get, set } from '@vueuse/core';
 import { T, __, always, applyTo, assoc, call, cond, converge, find, has, identity, ifElse, includes, isNotNil, map, pathEq, pipe, prop, propSatisfies, tap, unless, when } from 'ramda';
-import { APIError, APIErrorS } from './api';
+import { APIError, APIErrorS } from '../../../shared/schemas/error';
 
 export const Mutations = Object.freeze({
     logout: 'auth/logout',
